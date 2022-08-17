@@ -20,7 +20,7 @@ class SubscriptionCollector : uavcan::Noncopyable
     }
 
 public:
-    std::unique_ptr<DataType> msg;
+    std::auto_ptr<DataType> msg;
 
     typedef uavcan::MethodBinder<SubscriptionCollector*,
                                  void (SubscriptionCollector::*)(const DataType&)> Binder;
@@ -85,7 +85,7 @@ private:
     }
 
 public:
-    std::unique_ptr<Result> result;
+    std::auto_ptr<Result> result;
 
     typedef uavcan::MethodBinder<ServiceCallResultCollector*,
                                  void (ServiceCallResultCollector::*)(const uavcan::ServiceCallResult<DataType>&)>

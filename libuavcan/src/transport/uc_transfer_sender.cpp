@@ -28,7 +28,7 @@ int TransferSender::send(const uint8_t* payload, unsigned payload_len, Monotonic
                          MonotonicTime blocking_deadline, TransferType transfer_type, NodeID dst_node_id,
                          TransferID tid) const
 {
-    Frame frame(data_type_id_, transfer_type, dispatcher_.getNodeID(), dst_node_id, tid);
+    Frame frame(data_type_id_, transfer_type, dispatcher_.getNodeID(), dst_node_id, tid, dispatcher_.isCanFdEnabled());
 
     frame.setPriority(priority_);
     frame.setStartOfTransfer(true);
@@ -82,6 +82,14 @@ int TransferSender::send(const uint8_t* payload, unsigned payload_len, Monotonic
         {
             TransferCRC crc = crc_base_;
             crc.add(payload, payload_len);
+            // Take care of potential padding introduce in CANFD frames over 8Bytes
+            if (payload_len > 63 && frame.isCanFDFrame()) {
+                uint8_t empty = 0;
+                uint8_t padding = CanFrame::getNumPaddingBytes(payload_len);
+                for (uint8_t i=0; i<padding; i++) {
+                    crc.add(&empty, 1);
+                }
+            }
 
             static const int BUFLEN = sizeof(static_cast<CanFrame*>(0)->data);
             uint8_t buf[BUFLEN];

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # UAVCAN DSDL compiler for libuavcan
 #
@@ -15,7 +15,7 @@ It is based on the DSDL parsing package from pyuavcan.
 from __future__ import division, absolute_import, print_function, unicode_literals
 import sys, os, logging, errno, re
 from .pyratemp import Template
-from uavcan import dsdl
+from dronecan import dsdl
 
 # Python 2.7 compatibility
 try:

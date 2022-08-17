@@ -21,7 +21,7 @@ endif ()
 
 project(libuavcan)
 
-find_package(PythonInterp)
+find_program(PYTHON python)
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     set(COMPILER_IS_GCC_COMPATIBLE 1)
@@ -33,7 +33,7 @@ endif ()
 # DSDL compiler invocation
 # Probably output files should be saved into CMake output dir?
 #
-execute_process(COMMAND ${PYTHON_EXECUTABLE} setup.py build WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/dsdl_compiler OUTPUT_QUIET)
+execute_process(COMMAND ${PYTHON} setup.py build WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/dsdl_compiler OUTPUT_QUIET)
 set(DSDLC_INPUTS "test/dsdl_test/root_ns_a" "test/dsdl_test/root_ns_b" "${CMAKE_CURRENT_SOURCE_DIR}/../dsdl/uavcan")
 set(DSDLC_OUTPUT "include/dsdlc_generated")
 
@@ -43,7 +43,7 @@ foreach(DSDLC_INPUT ${DSDLC_INPUTS})
     set(DSDLC_INPUT_FILES ${DSDLC_INPUT_FILES} ${DSDLC_NEW_INPUT_FILES})
 endforeach(DSDLC_INPUT)
 add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/libuavcan_dsdlc_run.stamp
-                   COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/dsdl_compiler/libuavcan_dsdlc ${DSDLC_INPUTS} -O${DSDLC_OUTPUT}
+                   COMMAND ${PYTHON} ${CMAKE_CURRENT_SOURCE_DIR}/dsdl_compiler/libuavcan_dsdlc ${DSDLC_INPUTS} -O${DSDLC_OUTPUT}
                    COMMAND ${CMAKE_COMMAND} -E touch ${CMAKE_BINARY_DIR}/libuavcan_dsdlc_run.stamp
                    DEPENDS ${DSDLC_INPUT_FILES}
                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -56,8 +56,13 @@ include_directories(${DSDLC_OUTPUT})
 #
 if (COMPILER_IS_GCC_COMPATIBLE)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wundef")
-    message(STATUS "Using C++11")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+    if (UAVCAN_USE_CPP03)
+        message(STATUS "Using C++03")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++03 -Wno-variadic-macros -Wno-long-long")
+    else ()
+        message(STATUS "Using C++11 (pass UAVCAN_USE_CPP03=1 to override)")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+    endif ()
 endif ()
 
 if (DEBUG_BUILD)
@@ -76,7 +81,7 @@ add_dependencies(uavcan libuavcan_dsdlc)
 install(TARGETS uavcan                            DESTINATION lib)
 install(DIRECTORY include/uavcan                  DESTINATION include)
 install(DIRECTORY include/dsdlc_generated/uavcan  DESTINATION include)  # Generated and lib's .hpp
-install(CODE "execute_process(COMMAND ${PYTHON_EXECUTABLE} setup.py install --record installed_files.log
+install(CODE "execute_process(COMMAND ${PYTHON} setup.py install --record installed_files.log
                               WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/dsdl_compiler)")
 
 #
@@ -84,6 +89,7 @@ install(CODE "execute_process(COMMAND ${PYTHON_EXECUTABLE} setup.py install --re
 #
 function(add_libuavcan_test name library flags) # Adds GTest executable and creates target to execute it every build
     find_package(Threads REQUIRED)
+    include_directories(${GTEST_INCLUDE_DIRS})
 
     file(GLOB_RECURSE TEST_CXX_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "test/*.cpp")
     add_executable(${name} ${TEST_CXX_FILES})
@@ -93,23 +99,21 @@ function(add_libuavcan_test name library flags) # Adds GTest executable and crea
         set_target_properties(${name} PROPERTIES COMPILE_FLAGS ${flags})
     endif ()
 
-    target_link_libraries(${name} gmock_main)
+    target_link_libraries(${name} ${GTEST_BOTH_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
     target_link_libraries(${name} ${library})
-    if (${UAVCAN_PLATFORM} STREQUAL "linux")
-        target_link_libraries(${name} rt)
-    endif()
+    target_link_libraries(${name} rt)
 
     # Tests run automatically upon successful build
     # If failing tests need to be investigated with debugger, use 'make --ignore-errors'
     if (CONTINUOUS_INTEGRATION_BUILD)
         # Don't redirect test output, and don't run tests suffixed with "RealTime"
-        add_test(NAME ${name}
-                 COMMAND ${name} --gtest_filter=-*RealTime
-                 WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+        add_custom_command(TARGET ${name} POST_BUILD
+                           COMMAND ./${name} --gtest_filter=-*RealTime
+                           WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
     else ()
-        add_test(NAME ${name}
-             COMMAND ${name} 1>"${name}.log" 2>&1
-             WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+        add_custom_command(TARGET ${name} POST_BUILD
+                           COMMAND ./${name} 1>"${name}.log" 2>&1
+                           WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
     endif()
 endfunction()
 
@@ -124,6 +128,8 @@ if (DEBUG_BUILD)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wzero-as-null-pointer-constant -Wnon-virtual-dtor")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Woverloaded-virtual -Wsign-promo -Wold-style-cast")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=deprecated-declarations")
+        #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Weffc++ -Wno-error=effc++")  # Produces heaps of useless warnings
+        set(cpp03_flags "-std=c++03 -Wno-variadic-macros -Wno-long-long -Wno-zero-as-null-pointer-constant")
         set(optim_flags "-O3 -DNDEBUG -g0")
     else ()
         message(STATUS "Compiler ID: ${CMAKE_CXX_COMPILER_ID}")
@@ -131,14 +137,20 @@ if (DEBUG_BUILD)
     endif ()
 
     # Additional flavours of the library
+    add_library(uavcan_cpp03 STATIC ${LIBUAVCAN_CXX_FILES})
+    set_target_properties(uavcan_cpp03 PROPERTIES COMPILE_FLAGS ${cpp03_flags})
+    add_dependencies(uavcan_cpp03 libuavcan_dsdlc)
 
     add_library(uavcan_optim STATIC ${LIBUAVCAN_CXX_FILES})
     set_target_properties(uavcan_optim PROPERTIES COMPILE_FLAGS ${optim_flags})
     add_dependencies(uavcan_optim libuavcan_dsdlc)
 
+    # GTest executables
+    find_package(GTest)
     if (GTEST_FOUND)
-        message(STATUS "GTest found, tests will be built and run.")
+        message(STATUS "GTest found, tests will be built and run [${GTEST_INCLUDE_DIRS}] [${GTEST_BOTH_LIBRARIES}]")
         add_libuavcan_test(libuavcan_test       uavcan       "")                 # Default
+        add_libuavcan_test(libuavcan_test_cpp03 uavcan_cpp03 "${cpp03_flags}")   # C++03
         add_libuavcan_test(libuavcan_test_optim uavcan_optim "${optim_flags}")   # Max optimization
     else (GTEST_FOUND)
         message(STATUS "GTest was not found, tests will not be built")

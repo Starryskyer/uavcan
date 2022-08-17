@@ -25,14 +25,10 @@ namespace uavcan
  */
 class UAVCAN_EXPORT IFileServerBackend
 {
-
 public:
     typedef protocol::file::Path::FieldTypes::path Path;
     typedef protocol::file::EntryType EntryType;
     typedef protocol::file::Error Error;
-
-    IFileServerBackend::Path root_path_;
-    IFileServerBackend::Path alt_root_path_;
 
     /**
      * All read operations must return this number of bytes, unless end of file is reached.
@@ -43,51 +39,6 @@ public:
      * Shortcut for uavcan.protocol.file.Path.SEPARATOR.
      */
     static char getPathSeparator() { return static_cast<char>(protocol::file::Path::SEPARATOR); }
-
-    /**
-     * Set a base path to the files.
-     */
-    void setRootPath(const char * path)
-    {
-      if (path)
-      {
-        root_path_.clear();
-        root_path_ = path;
-        if (root_path_.back() != getPathSeparator())
-        {
-            root_path_.push_back(getPathSeparator());
-        }
-      }
-    }
-
-    void setAltRootPath(const char * path)
-    {
-      if (path)
-      {
-          alt_root_path_.clear();
-        alt_root_path_ = path;
-        if (alt_root_path_.back() != getPathSeparator())
-        {
-            alt_root_path_.push_back(getPathSeparator());
-        }
-      }
-    }
-
-    /**
-     * Get a base path to the files.
-     */
-    Path&  getRootPath()
-    {
-      return root_path_;
-    }
-
-    /**
-     * Get a base path to the files.
-     */
-    Path&  getAltRootPath()
-    {
-      return alt_root_path_;
-    }
 
     /**
      * Backend for uavcan.protocol.file.GetInfo.
@@ -210,11 +161,8 @@ public:
         , backend_(backend)
     { }
 
-    int start(const char* server_root = UAVCAN_NULLPTR, const char* server_alt_root = UAVCAN_NULLPTR)
+    int start()
     {
-      backend_.setRootPath(server_root);
-      backend_.setAltRootPath(server_alt_root);
-
         int res = get_info_srv_.start(GetInfoCallback(this, &BasicFileServer::handleGetInfo));
         if (res < 0)
         {
@@ -275,7 +223,6 @@ class FileServer : protected BasicFileServer
         resp.error.value = backend_.getDirectoryEntryInfo(req.directory_path.path, req.entry_index,
                                                           resp.entry_type, resp.entry_full_path.path);
     }
-
 
 public:
     FileServer(INode& node, IFileServerBackend& backend)

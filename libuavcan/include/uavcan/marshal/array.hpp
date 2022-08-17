@@ -809,13 +809,13 @@ public:
      * This operator can only be used with string-like arrays; otherwise it will fail to compile.
      * @ref c_str()
      */
-    bool operator==(const char* chr) const
+    bool operator==(const char* ch) const
     {
-        if (chr == UAVCAN_NULLPTR)
+        if (ch == UAVCAN_NULLPTR)
         {
             return false;
         }
-        return std::strncmp(Base::c_str(), chr, MaxSize) == 0;
+        return std::strncmp(Base::c_str(), ch, MaxSize) == 0;
     }
 
     /**
@@ -827,18 +827,18 @@ public:
      * This operator can only be used with string-like arrays; otherwise it will fail to compile.
      * @ref c_str()
      */
-    SelfType& operator=(const char* chr)
+    SelfType& operator=(const char* c)
     {
         StaticAssert<Base::IsStringLike>::check();
         StaticAssert<IsDynamic>::check();
         Base::clear();
-        if (chr == UAVCAN_NULLPTR)
+        if (c == UAVCAN_NULLPTR)
         {
             handleFatalError("Array::operator=(const char*)");
         }
-        while (*chr)
+        while (*c)
         {
-            push_back(ValueType(*chr++));  // Value type is likely to be unsigned char, so conversion may be required.
+            push_back(ValueType(*c++));  // Value type is likely to be unsigned char, so conversion may be required.
         }
         return *this;
     }
@@ -847,17 +847,17 @@ public:
      * This operator can only be used with string-like arrays; otherwise it will fail to compile.
      * @ref c_str()
      */
-    SelfType& operator+=(const char* chr)
+    SelfType& operator+=(const char* c)
     {
         StaticAssert<Base::IsStringLike>::check();
         StaticAssert<IsDynamic>::check();
-        if (chr == UAVCAN_NULLPTR)
+        if (c == UAVCAN_NULLPTR)
         {
             handleFatalError("Array::operator+=(const char*)");
         }
-        while (*chr)
+        while (*c)
         {
-            push_back(ValueType(*chr++));
+            push_back(ValueType(*c++));
         }
         return *this;
     }

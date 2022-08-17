@@ -7,14 +7,13 @@
 
 #include <uavcan/std.hpp>
 #include <uavcan/build_config.hpp>
-#include <uavcan/util/templates.hpp>
 
 namespace uavcan
 {
 
 #if UAVCAN_TINY
 
-class UAVCAN_EXPORT TransferPerfCounter : Noncopyable
+class UAVCAN_EXPORT TransferPerfCounter
 {
 public:
     void addTxTransfer() { }
@@ -28,12 +27,7 @@ public:
 
 #else
 
-/**
- * The class is declared noncopyable for two reasons:
- *  - to prevent accidental pass-by-value into a mutator
- *  - to make the addresses of the counters fixed and exposable to the user of the library
- */
-class UAVCAN_EXPORT TransferPerfCounter : Noncopyable
+class UAVCAN_EXPORT TransferPerfCounter
 {
     uint64_t transfers_tx_;
     uint64_t transfers_rx_;
@@ -56,13 +50,9 @@ public:
         errors_ += errors;
     }
 
-    /**
-     * Returned references are guaranteed to be valid as long as this instance of Node exists.
-     * This is enforced by virtue of the class being Noncopyable.
-     */
-    const uint64_t& getTxTransferCount() const { return transfers_tx_; }
-    const uint64_t& getRxTransferCount() const { return transfers_rx_; }
-    const uint64_t& getErrorCount() const { return errors_; }
+    uint64_t getTxTransferCount() const { return transfers_tx_; }
+    uint64_t getRxTransferCount() const { return transfers_rx_; }
+    uint64_t getErrorCount() const { return errors_; }
 };
 
 #endif

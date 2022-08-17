@@ -202,7 +202,7 @@ struct EnumMin
 /**
  * Selects larger value
  */
-template <unsigned long A, unsigned long B>
+template <long A, long B>
 struct EnumMax
 {
     enum { Result = (A > B) ? A : B };

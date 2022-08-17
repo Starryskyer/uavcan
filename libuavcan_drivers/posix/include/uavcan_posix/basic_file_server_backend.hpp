@@ -1,6 +1,6 @@
 /****************************************************************************
 *
-*   Copyright (c) 2015, 2021 PX4 Development Team. All rights reserved.
+*   Copyright (c) 2015 PX4 Development Team. All rights reserved.
 *      Author: Pavel Kirienko <pavel.kirienko@gmail.com>
 *              David Sidrane <david_s5@usa.net>
 *
@@ -37,7 +37,6 @@ class BasicFileServerBackend : public uavcan::IFileServerBackend
     enum { FilePermissions = 438 };   ///< 0o666
 
 protected:
-
     class FDCacheBase
     {
     public:
@@ -71,9 +70,6 @@ protected:
 
         /// Rate in Seconds that the cache will be flushed of stale entries.
         enum { GarbageCollectionSeconds = 60 };
-
-        IFileServerBackend::Path& alt_root_path_;
-        IFileServerBackend::Path& root_path_;
 
         class FDCacheItem : uavcan::Noncopyable
         {
@@ -241,10 +237,8 @@ protected:
         }
 
     public:
-        FDCache(uavcan::INode& node, IFileServerBackend::Path& root_path, IFileServerBackend::Path& alt_root_path) :
+        FDCache(uavcan::INode& node) :
             TimerBase(node),
-            alt_root_path_(alt_root_path),
-            root_path_(root_path),
             head_(UAVCAN_NULLPTR)
         { }
 
@@ -271,18 +265,7 @@ protected:
             }
             else
             {
-                Path vpath = root_path_.c_str();
-                vpath += path;
-
-                fd = FDCacheBase::open(vpath.c_str(), oflags);
-
-                if (fd < 0)
-                {
-                    vpath = alt_root_path_.c_str();
-                    vpath += path;
-                    fd = FDCacheBase::open(vpath.c_str(), oflags);
-                }
-
+                fd = FDCacheBase::open(path, oflags);
                 if (fd < 0)
                 {
                     return fd;
@@ -337,7 +320,7 @@ protected:
     {
         if (fdcache_ == UAVCAN_NULLPTR)
         {
-            fdcache_ = new FDCache(node_, getRootPath(), getAltRootPath());
+            fdcache_ = new FDCache(node_);
 
             if (fdcache_ == UAVCAN_NULLPTR)
             {
@@ -360,41 +343,31 @@ protected:
 
         if (path.size() > 0)
         {
+            using namespace std;
 
-          using namespace std;
+            struct stat sb;
 
-          struct stat sb;
+            rv = stat(path.c_str(), &sb);
 
-          Path vpath = getRootPath().c_str();
-          vpath += path;
-
-          rv = stat(vpath.c_str(), &sb);
-          if (rv < 0)
-          {
-              vpath = getAltRootPath().c_str();
-              vpath += path;
-              rv = stat(vpath.c_str(), &sb);
-          }
-
-          if (rv < 0)
-          {
-              rv = errno;
-          }
-          else
-          {
-              rv = 0;
-              out_size = sb.st_size;
-              out_type.flags = uavcan::protocol::file::EntryType::FLAG_READABLE;
-              if (S_ISDIR(sb.st_mode))
-              {
-                  out_type.flags |= uavcan::protocol::file::EntryType::FLAG_DIRECTORY;
-              }
-              else if (S_ISREG(sb.st_mode))
-              {
-                  out_type.flags |= uavcan::protocol::file::EntryType::FLAG_FILE;
-              }
-              // TODO Using fixed flag FLAG_READABLE until we add file permission checks to return actual value.
-          }
+            if (rv < 0)
+            {
+                rv = errno;
+            }
+            else
+            {
+                rv = 0;
+                out_size = sb.st_size;
+                out_type.flags = uavcan::protocol::file::EntryType::FLAG_READABLE;
+                if (S_ISDIR(sb.st_mode))
+                {
+                    out_type.flags |= uavcan::protocol::file::EntryType::FLAG_DIRECTORY;
+                }
+                else if (S_ISREG(sb.st_mode))
+                {
+                    out_type.flags |= uavcan::protocol::file::EntryType::FLAG_FILE;
+                }
+                // TODO Using fixed flag FLAG_READABLE until we add file permission checks to return actual value.
+            }
         }
         return rv;
     }
@@ -416,12 +389,11 @@ protected:
             using namespace std;
 
             FDCacheBase& cache = getFDCache();
-
             int fd = cache.open(path.c_str(), O_RDONLY);
 
             if (fd < 0)
             {
-                rv = -errno;
+                rv = errno;
             }
             else
             {
@@ -431,7 +403,7 @@ protected:
 
                 if (rv < 0)
                 {
-                    rv = -errno;
+                    rv = errno;
                 }
                 else
                 {

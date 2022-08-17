@@ -3,6 +3,8 @@
  */
 
 #if __GNUC__
+// We need auto_ptr for compatibility reasons
+# pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 # pragma GCC diagnostic ignored "-Wzero-as-null-pointer-constant"
 #endif
 
@@ -76,7 +78,7 @@ TEST(Multiset, Basic)
     uavcan::PoolAllocator<uavcan::MemPoolBlockSize * POOL_BLOCKS, uavcan::MemPoolBlockSize> pool;
 
     typedef Multiset<std::string> MultisetType;
-    std::unique_ptr<MultisetType> mset(new MultisetType(pool));
+    std::auto_ptr<MultisetType> mset(new MultisetType(pool));
 
     typedef SummationOperator<std::string> StringConcatenationOperator;
 
@@ -197,7 +199,7 @@ TEST(Multiset, PrimitiveKey)
     uavcan::PoolAllocator<uavcan::MemPoolBlockSize * POOL_BLOCKS, uavcan::MemPoolBlockSize> pool;
 
     typedef Multiset<int> MultisetType;
-    std::unique_ptr<MultisetType> mset(new MultisetType(pool));
+    std::auto_ptr<MultisetType> mset(new MultisetType(pool));
 
     // Empty
     mset->removeFirst(8);
@@ -237,7 +239,7 @@ TEST(Multiset, NoncopyableWithCounter)
     uavcan::PoolAllocator<uavcan::MemPoolBlockSize * POOL_BLOCKS, uavcan::MemPoolBlockSize> pool;
 
     typedef Multiset<NoncopyableWithCounter> MultisetType;
-    std::unique_ptr<MultisetType> mset(new MultisetType(pool));
+    std::auto_ptr<MultisetType> mset(new MultisetType(pool));
 
     ASSERT_EQ(0, NoncopyableWithCounter::num_objects);
     ASSERT_EQ(0,    mset->emplace()->value);

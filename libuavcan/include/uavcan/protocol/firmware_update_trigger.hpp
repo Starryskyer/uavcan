@@ -345,7 +345,12 @@ class FirmwareUpdateTrigger : public INodeInfoListener,
         protocol::file::BeginFirmwareUpdate::Request req;
 
         req.source_node_id = getNode().getNodeID().get();
-        req.image_file_remote_path.path = path->c_str();
+        if (!common_path_prefix_.empty())
+        {
+            req.image_file_remote_path.path += common_path_prefix_.c_str();
+            req.image_file_remote_path.path.push_back(protocol::file::Path::SEPARATOR);
+        }
+        req.image_file_remote_path.path += path->c_str();
 
         UAVCAN_TRACE("FirmwareUpdateTrigger", "Request to %d with path: %s",
                      int(node_id.get()), req.image_file_remote_path.path.c_str());
@@ -391,7 +396,6 @@ public:
      */
     int start(NodeInfoRetriever& node_info_retriever,
               const FirmwareFilePath& arg_common_path_prefix = FirmwareFilePath(),
-              const FirmwareFilePath& arg_alt_path_prefix = FirmwareFilePath(),
               const TransferPriority priority = TransferPriority::OneHigherThanLowest)
     {
         /*
